@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Block Blast Web Game</title>
+    <title>Block Blast Web - Drag & Drop + Combo</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -12,73 +12,77 @@
             text-align: center;
             margin: 0;
             padding: 20px;
+            user-select: none;
         }
         h1 { margin-bottom: 5px; color: #ffcc00; }
-        #score { font-size: 24px; margin-bottom: 20px; font-weight: bold; }
+        #score-board { font-size: 20px; margin-bottom: 15px; font-weight: bold; }
+        #combo-text { font-size: 18px; color: #ff5722; height: 25px; font-weight: bold; }
         
         /* Papan Permainan 8x8 */
         .board {
             display: grid;
-            grid-template-columns: repeat(8, 40px);
-            grid-template-rows: repeat(8, 40px);
-            gap: 2px;
-            background: #333;
-            padding: 5px;
-            border-radius: 8px;
-            margin: 0 auto 20px auto;
+            grid-template-columns: repeat(8, 42px);
+            grid-template-rows: repeat(8, 42px);
+            gap: 3px;
+            background: #252538;
+            padding: 8px;
+            border-radius: 10px;
+            margin: 10px auto;
             width: max-content;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
         }
         .cell {
-            width: 40px;
-            height: 40px;
+            width: 42px;
+            height: 42px;
             background-color: #2b2b3d;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 18px;
-            cursor: pointer;
-            transition: background 0.2s;
+            border-radius: 6px;
+            transition: background 0.15s, transform 0.1s;
         }
         .cell.filled {
             background-color: #ff5722;
-            color: white;
-            box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
+            box-shadow: inset 0 0 6px rgba(0,0,0,0.3);
+        }
+        .cell.drag-over {
+            background-color: #44446b;
+            transform: scale(0.95);
         }
 
         /* Area Pilihan Balok */
         .pieces-container {
             display: flex;
             justify-content: center;
-            gap: 20px;
-            margin-top: 20px;
+            align-items: center;
+            gap: 25px;
+            margin-top: 25px;
             flex-wrap: wrap;
+            min-height: 120px;
         }
         .piece-box {
             background: #2b2b3d;
             border: 2px solid #444;
-            padding: 10px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
+            padding: 12px;
+            border-radius: 10px;
+            cursor: grab;
+            touch-action: none;
+            transition: transform 0.2s, border-color 0.2s;
         }
-        .piece-box.selected {
-            border-color: #ffcc00;
-            background: #3a3a52;
-            transform: scale(1.05);
+        .piece-box:active {
+            cursor: grabbing;
+        }
+        .piece-box.dragging {
+            opacity: 0.5;
         }
         .mini-grid {
             display: grid;
-            grid-template-columns: repeat(4, 20px);
-            grid-template-rows: repeat(4, 20px);
+            grid-template-columns: repeat(4, 22px);
+            grid-template-rows: repeat(4, 22px);
             gap: 2px;
         }
         .mini-cell {
-            width: 20px;
-            height: 20px;
+            width: 22px;
+            height: 22px;
             background: #1e1e2f;
-            border-radius: 2px;
+            border-radius: 3px;
         }
         .mini-cell.filled {
             background-color: #4caf50;
@@ -86,8 +90,8 @@
 
         #message {
             margin-top: 15px;
-            font-size: 18px;
-            color: #ff6b6b;
+            font-size: 16px;
+            color: #a0a0c0;
             min-height: 25px;
         }
 
@@ -101,6 +105,7 @@
             cursor: pointer;
             font-weight: bold;
             color: #1e1e2f;
+            transition: background 0.2s;
         }
         button:hover { background-color: #e6b800; }
     </style>
@@ -108,11 +113,12 @@
 <body>
 
     <h1>Block Blast Web</h1>
-    <div id="score">Skor: 0</div>
+    <div id="score-board">Skor: <span id="score">0</span> | High Score: <span id="highscore">0</span></div>
+    <div id="combo-text"></div>
     
     <div class="board" id="game-board"></div>
     
-    <div id="message">Pilih salah satu balok di bawah, lalu klik kotak di papan!</div>
+    <div id="message">Seret (drag) balok ke papan permainan!</div>
 
     <div class="pieces-container" id="pieces-container"></div>
 
@@ -123,9 +129,9 @@
         const SIZE = 8;
         let board = Array(SIZE).fill(null).map(() => Array(SIZE).fill('.'));
         let score = 0;
-        let selectedPieceIndex = null;
+        let highscore = localStorage.getItem('block_blast_highscore') || 0;
+        let activePieceIndex = null;
 
-        // Daftar bentuk balok (mirip kode C++ Anda)
         const allPieces = [
             { cells: [[0,0]], symbol: 'A' },
             { cells: [[0,0], [0,1]], symbol: 'B' },
@@ -133,11 +139,18 @@
             { cells: [[0,0], [0,1], [0,2]], symbol: 'D' },
             { cells: [[0,0], [1,0], [2,0]], symbol: 'E' },
             { cells: [[0,0], [0,1], [1,0], [1,1]], symbol: 'F' },
-            { cells: [[0,0], [1,0], [1,1]], symbol: 'I' }
+            { cells: [[0,0], [0,1], [0,2], [0,3]], symbol: 'G' },
+            { cells: [[0,0], [1,0], [2,0], [3,0]], symbol: 'H' },
+            { cells: [[0,0], [1,0], [1,1]], symbol: 'I' },
+            { cells: [[0,1], [1,0], [1,1]], symbol: 'J' },
+            { cells: [[0,0], [0,1], [1,1], [1,2]], symbol: 'K' },
+            { cells: [[0,0], [0,1], [0,2], [1,1]], symbol: 'M' }
         ];
 
         let currentPieces = [];
         let usedPieces = [false, false, false];
+
+        document.getElementById('highscore').innerText = highscore;
 
         function initGame() {
             board = Array(SIZE).fill(null).map(() => Array(SIZE).fill('.'));
@@ -156,7 +169,12 @@
         }
 
         function updateUI() {
-            document.getElementById('score').innerText = "Skor: " + score;
+            document.getElementById('score').innerText = score;
+            if (score > highscore) {
+                highscore = score;
+                localStorage.setItem('block_blast_highscore', highscore);
+                document.getElementById('highscore').innerText = highscore;
+            }
             
             // Render Papan
             const boardEl = document.getElementById('game-board');
@@ -167,7 +185,13 @@
                     cellEl.className = 'cell' + (board[r][c] !== '.' ? ' filled' : '');
                     cellEl.dataset.row = r;
                     cellEl.dataset.col = c;
-                    cellEl.onclick = () => handleCellClick(r, c);
+                    
+                    // Event listener untuk Drag & Drop ke papan
+                    cellEl.addEventListener('dragover', (e) => e.preventDefault());
+                    cellEl.addEventListener('dragenter', () => highlightTarget(r, c, true));
+                    cellEl.addEventListener('dragleave', () => highlightTarget(r, c, false));
+                    cellEl.addEventListener('drop', () => handleDrop(r, c));
+
                     boardEl.appendChild(cellEl);
                 }
             }
@@ -177,16 +201,22 @@
             container.innerHTML = '';
             currentPieces.forEach((piece, index) => {
                 const box = document.createElement('div');
-                box.className = 'piece-box' + (selectedPieceIndex === index ? ' selected' : '');
+                box.className = 'piece-box';
+                box.draggable = !usedPieces[index];
+
                 if (usedPieces[index]) {
-                    box.style.opacity = '0.3';
-                    box.style.pointerEvents = 'none';
+                    box.style.opacity = '0.2';
+                    box.style.cursor = 'default';
                 }
-                box.onclick = () => {
-                    selectedPieceIndex = index;
-                    document.getElementById('message').innerText = `Balok ${index + 1} dipilih. Klik papan untuk meletakkan!`;
-                    updateUI();
-                };
+
+                box.addEventListener('dragstart', () => {
+                    activePieceIndex = index;
+                    box.classList.add('dragging');
+                });
+                box.addEventListener('dragend', () => {
+                    box.classList.remove('dragging');
+                    clearHighlights();
+                });
 
                 const miniGrid = document.createElement('div');
                 miniGrid.className = 'mini-grid';
@@ -207,6 +237,27 @@
             checkGameOver();
         }
 
+        function highlightTarget(targetR, targetC, isEnter) {
+            if (activePieceIndex === null || usedPieces[activePieceIndex]) return;
+            let piece = currentPieces[activePieceIndex];
+            
+            for (let cell of piece.cells) {
+                let r = targetR + cell[0];
+                let c = targetC + cell[1];
+                if (r < SIZE && c < SIZE) {
+                    let cellEl = document.querySelector(`[data-row='${r}'][data-col='${c}']`);
+                    if (cellEl) {
+                        if (isEnter) cellEl.classList.add('drag-over');
+                        else cellEl.classList.remove('drag-over');
+                    }
+                }
+            }
+        }
+
+        function clearHighlights() {
+            document.querySelectorAll('.cell').forEach(el => el.classList.remove('drag-over'));
+        }
+
         function canPlace(piece, row, col) {
             for (let cell of piece.cells) {
                 let bRow = row + cell[0];
@@ -217,15 +268,12 @@
             return true;
         }
 
-        function handleCellClick(row, col) {
-            if (selectedPieceIndex === null || usedPieces[selectedPieceIndex]) {
-                document.getElementById('message').innerText = "Pilih balok yang aktif terlebih dahulu!";
-                return;
-            }
+        function handleDrop(row, col) {
+            if (activePieceIndex === null || usedPieces[activePieceIndex]) return;
 
-            let piece = currentPieces[selectedPieceIndex];
+            let piece = currentPieces[activePieceIndex];
             if (!canPlace(piece, row, col)) {
-                document.getElementById('message').innerText = "Balok tidak bisa diletakkan di posisi itu!";
+                document.getElementById('message').innerText = "Tidak bisa ditaruh di sini!";
                 return;
             }
 
@@ -234,14 +282,27 @@
                 board[row + cell[0]][col + cell[1]] = piece.symbol;
             }
 
-            usedPieces[selectedPieceIndex] = true;
+            usedPieces[activePieceIndex] = true;
             score += piece.cells.length * 10;
 
-            // Bersihkan baris/kolom penuh
-            clearLines();
+            // Cek Baris/Kolom dan Sistem Combo
+            let clearedLines = clearLines();
+            let comboTextEl = document.getElementById('combo-text');
 
-            selectedPieceIndex = null;
-            document.getElementById('message').innerText = "Berhasil dipasang!";
+            if (clearedLines > 0) {
+                let comboBonus = clearedLines * 100 * clearedLines; // Semakin banyak baris, bonus makin besar
+                score += comboBonus;
+                if (clearedLines > 1) {
+                    comboTextEl.innerText = `🔥 COMBO x${clearedLines}! +${comboBonus} Poin`;
+                } else {
+                    comboTextEl.innerText = `✨ Bersih! +100 Poin`;
+                }
+            } else {
+                comboTextEl.innerText = "";
+            }
+
+            activePieceIndex = null;
+            document.getElementById('message').innerText = "";
 
             if (usedPieces.every(u => u)) {
                 refillPieces();
@@ -273,9 +334,8 @@
                 }
             }
 
-            if (clearedCount > 0) {
-                score += clearedCount * 100;
-            }
+            let totalLines = fullRows.filter(Boolean).length + fullCols.filter(Boolean).length;
+            return totalLines;
         }
 
         function checkGameOver() {
@@ -291,17 +351,18 @@
             }
 
             if (!hasMove && usedPieces.some(u => !u)) {
-                document.getElementById('message').innerText = "GAME OVER! Skor Akhir: " + score;
+                document.getElementById('message').innerText = "GAME OVER! Silakan klik Mulai Ulang.";
+                document.getElementById('combo-text').innerText = "😢 Tidak ada langkah tersisa!";
             }
         }
 
         function resetGame() {
-            selectedPieceIndex = null;
+            activePieceIndex = null;
+            document.getElementById('combo-text').innerText = "";
             initGame();
             document.getElementById('message').innerText = "Game baru dimulai. Selamat bermain!";
         }
 
-        // Jalankan game saat pertama kali dibuka
         initGame();
     </script>
 </body>

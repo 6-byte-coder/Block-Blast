@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Block Blast Web - Drag & Drop + Combo</title>
+    <title>Block Blast Web</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -47,45 +47,47 @@
             transform: scale(0.95);
         }
 
-        /* Area Pilihan Balok */
+        /* Area Pilihan Balok (Kotak luar dihilangkan, hanya sisa bentuk baloknya) */
         .pieces-container {
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 25px;
-            margin-top: 25px;
+            gap: 40px;
+            margin-top: 30px;
             flex-wrap: wrap;
-            min-height: 120px;
+            min-height: 100px;
         }
         .piece-box {
-            background: #2b2b3d;
-            border: 2px solid #444;
-            padding: 12px;
-            border-radius: 10px;
+            background: transparent; /* Latar belakang transparan */
+            border: none;            /* Garis tepi dihilangkan */
+            padding: 0;
             cursor: grab;
             touch-action: none;
-            transition: transform 0.2s, border-color 0.2s;
+            transition: transform 0.2s;
         }
         .piece-box:active {
             cursor: grabbing;
         }
         .piece-box.dragging {
-            opacity: 0.5;
+            opacity: 0.4;
         }
+        
+        /* Grid mini untuk pilihan balok */
         .mini-grid {
             display: grid;
-            grid-template-columns: repeat(4, 22px);
-            grid-template-rows: repeat(4, 22px);
-            gap: 2px;
+            grid-template-columns: repeat(4, 25px);
+            grid-template-rows: repeat(4, 25px);
+            gap: 3px;
         }
         .mini-cell {
-            width: 22px;
-            height: 22px;
-            background: #1e1e2f;
-            border-radius: 3px;
+            width: 25px;
+            height: 25px;
+            background: transparent; /* Kotak kosong tidak terlihat */
+            border-radius: 4px;
         }
         .mini-cell.filled {
-            background-color: #4caf50;
+            background-color: #ff5722; /* Warna balok yang bisa digeser */
+            box-shadow: inset 0 0 4px rgba(0,0,0,0.3);
         }
 
         #message {
@@ -118,7 +120,7 @@
     
     <div class="board" id="game-board"></div>
     
-    <div id="message">Seret (drag) balok ke papan permainan!</div>
+    <div id="message">Seret balok ke papan permainan!</div>
 
     <div class="pieces-container" id="pieces-container"></div>
 
@@ -186,7 +188,6 @@
                     cellEl.dataset.row = r;
                     cellEl.dataset.col = c;
                     
-                    // Event listener untuk Drag & Drop ke papan
                     cellEl.addEventListener('dragover', (e) => e.preventDefault());
                     cellEl.addEventListener('dragenter', () => highlightTarget(r, c, true));
                     cellEl.addEventListener('dragleave', () => highlightTarget(r, c, false));
@@ -196,7 +197,7 @@
                 }
             }
 
-            // Render Pilihan Balok
+            // Render Pilihan Balok (Tanpa Kotak Luar)
             const container = document.getElementById('pieces-container');
             container.innerHTML = '';
             currentPieces.forEach((piece, index) => {
@@ -205,7 +206,7 @@
                 box.draggable = !usedPieces[index];
 
                 if (usedPieces[index]) {
-                    box.style.opacity = '0.2';
+                    box.style.opacity = '0';
                     box.style.cursor = 'default';
                 }
 
@@ -277,7 +278,6 @@
                 return;
             }
 
-            // Letakkan balok
             for (let cell of piece.cells) {
                 board[row + cell[0]][col + cell[1]] = piece.symbol;
             }
@@ -285,12 +285,11 @@
             usedPieces[activePieceIndex] = true;
             score += piece.cells.length * 10;
 
-            // Cek Baris/Kolom dan Sistem Combo
             let clearedLines = clearLines();
             let comboTextEl = document.getElementById('combo-text');
 
             if (clearedLines > 0) {
-                let comboBonus = clearedLines * 100 * clearedLines; // Semakin banyak baris, bonus makin besar
+                let comboBonus = clearedLines * 100 * clearedLines;
                 score += comboBonus;
                 if (clearedLines > 1) {
                     comboTextEl.innerText = `🔥 COMBO x${clearedLines}! +${comboBonus} Poin`;
@@ -314,7 +313,6 @@
         function clearLines() {
             let fullRows = Array(SIZE).fill(false);
             let fullCols = Array(SIZE).fill(false);
-            let clearedCount = 0;
 
             for (let r = 0; r < SIZE; r++) {
                 if (board[r].every(cell => cell !== '.')) fullRows[r] = true;
@@ -326,10 +324,7 @@
             for (let r = 0; r < SIZE; r++) {
                 for (let c = 0; c < SIZE; c++) {
                     if (fullRows[r] || fullCols[c]) {
-                        if (board[r][c] !== '.') {
-                            board[r][c] = '.';
-                            clearedCount++;
-                        }
+                        board[r][c] = '.';
                     }
                 }
             }

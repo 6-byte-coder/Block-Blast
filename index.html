@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Block Blast Web</title>
+    <title>Block Blast Web - Animasi & Suara</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -41,13 +41,30 @@
         .cell.filled {
             background-color: #ff5722;
             box-shadow: inset 0 0 6px rgba(0,0,0,0.3);
+            animation: popIn 0.2s ease-out;
         }
         .cell.drag-over {
             background-color: #44446b;
             transform: scale(0.95);
         }
 
-        /* Area Pilihan Balok (Kotak luar dihilangkan, hanya sisa bentuk baloknya) */
+        /* Animasi saat baris/kolom hancur (Meledak/Menghilang) */
+        .cell.clearing {
+            animation: clearAnim 0.3s ease-out forwards;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes clearAnim {
+            0% { transform: scale(1); background-color: #ffffff; }
+            50% { transform: scale(1.2); background-color: #ffeb3b; }
+            100% { transform: scale(0); opacity: 0; background-color: #2b2b3d; }
+        }
+
+        /* Area Pilihan Balok (Tanpa Kotak Luar) */
         .pieces-container {
             display: flex;
             justify-content: center;
@@ -58,8 +75,8 @@
             min-height: 100px;
         }
         .piece-box {
-            background: transparent; /* Latar belakang transparan */
-            border: none;            /* Garis tepi dihilangkan */
+            background: transparent;
+            border: none;
             padding: 0;
             cursor: grab;
             touch-action: none;
@@ -82,11 +99,11 @@
         .mini-cell {
             width: 25px;
             height: 25px;
-            background: transparent; /* Kotak kosong tidak terlihat */
+            background: transparent;
             border-radius: 4px;
         }
         .mini-cell.filled {
-            background-color: #ff5722; /* Warna balok yang bisa digeser */
+            background-color: #ff5722;
             box-shadow: inset 0 0 4px rgba(0,0,0,0.3);
         }
 
@@ -128,11 +145,63 @@
     <button onclick="resetGame()">Mulai Ulang</button>
 
     <script>
+        // --- Web Audio API untuk Efek Suara Tanpa File Eksternal ---
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playSound(type) {
+            initAudio();
+            if (!audioCtx) return;
+
+            let osc = audioCtx.createOscillator();
+            let gainNode = audioCtx.createGain();
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            let now = audioCtx.currentTime;
+
+            if (type === 'place') {
+                // Suara ketukan menaruh balok
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(150, now + 0.1);
+                gainNode.gain.setValueAtTime(0.3, now);
+                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'clear') {
+                // Suara bersih/hancur baris (nada ceria)
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(440, now);
+                osc.frequency.exponentialRampToValueAtTime(880, now + 0.25);
+                gainNode.gain.setValueAtTime(0.4, now);
+                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            } else if (type === 'gameover') {
+                // Suara Game Over (nada turun)
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.linearRampToValueAtTime(100, now + 0.5);
+                gainNode.gain.setValueAtTime(0.4, now);
+                gainNode.gain.linearRampToValueAtTime(0.01, now + 0.5);
+                osc.start(now);
+                osc.stop(now + 0.5);
+            }
+        }
+
+        // --- Logika Permainan ---
         const SIZE = 8;
         let board = Array(SIZE).fill(null).map(() => Array(SIZE).fill('.'));
         let score = 0;
         let highscore = localStorage.getItem('block_blast_highscore') || 0;
         let activePieceIndex = null;
+        let isAnimating = false; // Mencegah drag saat animasi hancur aktif
 
         const allPieces = [
             { cells: [[0,0]], symbol: 'A' },
@@ -197,13 +266,13 @@
                 }
             }
 
-            // Render Pilihan Balok (Tanpa Kotak Luar)
+            // Render Pilihan Balok
             const container = document.getElementById('pieces-container');
             container.innerHTML = '';
             currentPieces.forEach((piece, index) => {
                 const box = document.createElement('div');
                 box.className = 'piece-box';
-                box.draggable = !usedPieces[index];
+                box.draggable = !usedPieces[index] && !isAnimating;
 
                 if (usedPieces[index]) {
                     box.style.opacity = '0';
@@ -211,6 +280,7 @@
                 }
 
                 box.addEventListener('dragstart', () => {
+                    initAudio(); // Aktifkan konteks audio saat interaksi pertama
                     activePieceIndex = index;
                     box.classList.add('dragging');
                 });
@@ -239,7 +309,7 @@
         }
 
         function highlightTarget(targetR, targetC, isEnter) {
-            if (activePieceIndex === null || usedPieces[activePieceIndex]) return;
+            if (activePieceIndex === null || usedPieces[activePieceIndex] || isAnimating) return;
             let piece = currentPieces[activePieceIndex];
             
             for (let cell of piece.cells) {
@@ -270,13 +340,16 @@
         }
 
         function handleDrop(row, col) {
-            if (activePieceIndex === null || usedPieces[activePieceIndex]) return;
+            if (activePieceIndex === null || usedPieces[activePieceIndex] || isAnimating) return;
 
             let piece = currentPieces[activePieceIndex];
             if (!canPlace(piece, row, col)) {
                 document.getElementById('message').innerText = "Tidak bisa ditaruh di sini!";
                 return;
             }
+
+            // Putar suara pasang balok
+            playSound('place');
 
             for (let cell of piece.cells) {
                 board[row + cell[0]][col + cell[1]] = piece.symbol;
@@ -285,20 +358,8 @@
             usedPieces[activePieceIndex] = true;
             score += piece.cells.length * 10;
 
-            let clearedLines = clearLines();
-            let comboTextEl = document.getElementById('combo-text');
-
-            if (clearedLines > 0) {
-                let comboBonus = clearedLines * 100 * clearedLines;
-                score += comboBonus;
-                if (clearedLines > 1) {
-                    comboTextEl.innerText = `🔥 COMBO x${clearedLines}! +${comboBonus} Poin`;
-                } else {
-                    comboTextEl.innerText = `✨ Bersih! +100 Poin`;
-                }
-            } else {
-                comboTextEl.innerText = "";
-            }
+            // Cek baris/kolom penuh dan jalankan animasi hancur
+            processLinesAndAnimation();
 
             activePieceIndex = null;
             document.getElementById('message').innerText = "";
@@ -306,11 +367,9 @@
             if (usedPieces.every(u => u)) {
                 refillPieces();
             }
-
-            updateUI();
         }
 
-        function clearLines() {
+        function processLinesAndAnimation() {
             let fullRows = Array(SIZE).fill(false);
             let fullCols = Array(SIZE).fill(false);
 
@@ -321,16 +380,51 @@
                 if (board.every(row => row[c] !== '.')) fullCols[c] = true;
             }
 
+            let cellsToClear = [];
             for (let r = 0; r < SIZE; r++) {
                 for (let c = 0; c < SIZE; c++) {
                     if (fullRows[r] || fullCols[c]) {
-                        board[r][c] = '.';
+                        if (board[r][c] !== '.') {
+                            cellsToClear.push({r, c});
+                        }
                     }
                 }
             }
 
             let totalLines = fullRows.filter(Boolean).length + fullCols.filter(Boolean).length;
-            return totalLines;
+            let comboTextEl = document.getElementById('combo-text');
+
+            if (cellsToClear.length > 0) {
+                isAnimating = true;
+                playSound('clear');
+
+                // Tambahkan kelas animasi hancur ke elemen visual
+                cellsToClear.forEach(item => {
+                    let cellEl = document.querySelector(`[data-row='${item.r}'][data-col='${item.c}']`);
+                    if (cellEl) cellEl.classList.add('clearing');
+                });
+
+                let comboBonus = totalLines * 100 * totalLines;
+                score += comboBonus;
+
+                if (totalLines > 1) {
+                    comboTextEl.innerText = `🔥 COMBO x${totalLines}! +${comboBonus} Poin`;
+                } else {
+                    comboTextEl.innerText = `✨ Bersih! +100 Poin`;
+                }
+
+                // Tunggu animasi selesai (300ms) baru hapus datanya dari board & perbarui UI
+                setTimeout(() => {
+                    cellsToClear.forEach(item => {
+                        board[item.r][item.c] = '.';
+                    });
+                    isAnimating = false;
+                    updateUI();
+                }, 300);
+            } else {
+                comboTextEl.innerText = "";
+                updateUI();
+            }
         }
 
         function checkGameOver() {
@@ -346,6 +440,7 @@
             }
 
             if (!hasMove && usedPieces.some(u => !u)) {
+                playSound('gameover');
                 document.getElementById('message').innerText = "GAME OVER! Silakan klik Mulai Ulang.";
                 document.getElementById('combo-text').innerText = "😢 Tidak ada langkah tersisa!";
             }
@@ -353,6 +448,7 @@
 
         function resetGame() {
             activePieceIndex = null;
+            isAnimating = false;
             document.getElementById('combo-text').innerText = "";
             initGame();
             document.getElementById('message').innerText = "Game baru dimulai. Selamat bermain!";

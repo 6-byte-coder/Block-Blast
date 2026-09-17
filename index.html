@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Block Blast Web - Final</title>
+    <title>Block Blast Web - Clean Mobile</title>
+    <!-- Polyfill agar Drag & Drop berfungsi di HP / Layar Sentuh -->
+    <script src="https://cdn.jsdelivr.net/npm/drag-drop-touch@1.3.1/DragDropTouch.min.js"></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -13,6 +15,7 @@
             margin: 0;
             padding: 20px;
             user-select: none;
+            -webkit-user-select: none;
         }
         h1 { margin-bottom: 5px; color: #ffcc00; }
         #score-board { font-size: 20px; margin-bottom: 10px; font-weight: bold; }
@@ -21,8 +24,8 @@
         /* Papan Permainan 8x8 dengan Pembatas Jelas */
         .board {
             display: grid;
-            grid-template-columns: repeat(8, 44px);
-            grid-template-rows: repeat(8, 44px);
+            grid-template-columns: repeat(8, 42px);
+            grid-template-rows: repeat(8, 42px);
             gap: 4px;
             background: #1f1f2e;
             padding: 10px;
@@ -33,8 +36,8 @@
             border: 2px solid #2d2d44;
         }
         .cell {
-            width: 44px;
-            height: 44px;
+            width: 42px;
+            height: 42px;
             background-color: #262638;
             border: 1px solid #36364f; /* Pembatas di setiap kotak kosong */
             border-radius: 6px;
@@ -68,24 +71,24 @@
             100% { transform: scale(0); opacity: 0; background-color: #262638; }
         }
 
-        /* Area Pilihan Balok */
+        /* Area Pilihan Balok (Background & Border Dihilangkan) */
         .pieces-container {
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 35px;
-            margin-top: 30px;
+            gap: 30px;
+            margin-top: 25px;
             flex-wrap: wrap;
             min-height: 110px;
         }
         .piece-box {
-            background: #1f1f2e;
-            border: 2px dashed #444463; /* Pembatas area pilihan balok */
-            padding: 10px;
+            background: transparent; /* Background dihilangkan */
+            border: none;           /* Border/Kotak pembatas dihilangkan */
+            padding: 5px;
             border-radius: 10px;
             cursor: grab;
             touch-action: none;
-            transition: transform 0.2s, border-color 0.2s;
+            transition: transform 0.2s;
         }
         .piece-box:active {
             cursor: grabbing;
@@ -105,11 +108,11 @@
             width: 22px;
             height: 22px;
             background: transparent;
-            border-radius: 3px;
+            border-radius: 4px;
         }
         .mini-cell.filled {
-            background-color: #4caf50;
-            border: 1px solid #66bb6a;
+            background-color: #ff5722; /* Menyamakan warna balok di papan */
+            border: 1px solid #ff784e;
             box-shadow: inset 0 0 4px rgba(0,0,0,0.3);
         }
 
@@ -269,7 +272,7 @@
                 }
             }
 
-            // Render 3 Pilihan Balok di Bawah
+            // Render 3 Pilihan Balok di Bawah (Tanpa Background Kotak)
             const container = document.getElementById('pieces-container');
             container.innerHTML = '';
             currentPieces.forEach((piece, index) => {
@@ -278,8 +281,7 @@
                 box.draggable = !usedPieces[index] && !isAnimating;
 
                 if (usedPieces[index]) {
-                    box.style.opacity = '0';
-                    box.style.pointerEvents = 'none';
+                    box.style.display = 'none';
                 }
 
                 box.addEventListener('dragstart', () => {
@@ -332,13 +334,12 @@
             document.querySelectorAll('.cell').forEach(el => el.classList.remove('drag-over'));
         }
 
-        // Pengecekan agar tidak menimpa balok lain / keluar batas papan
         function canPlace(piece, row, col) {
             for (let cell of piece.cells) {
                 let bRow = row + cell[0];
                 let bCol = col + cell[1];
                 if (bRow < 0 || bRow >= SIZE || bCol < 0 || bCol >= SIZE) return false;
-                if (board[bRow][bCol] !== '.') return false; // Terhalang balok lain
+                if (board[bRow][bCol] !== '.') return false;
             }
             return true;
         }
@@ -366,7 +367,6 @@
             activePieceIndex = null;
             document.getElementById('message').innerText = "";
 
-            // Jika ketiganya sudah dipakai, otomatis muncul 3 blok baru dengan bentuk berbeda
             if (usedPieces.every(u => u)) {
                 refillPieces();
             }

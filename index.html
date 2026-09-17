@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Block Blast Web - Tap Control</title>
+    <title>Block Blast Web - Fixed Refill</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -70,7 +70,7 @@
             100% { transform: scale(0); opacity: 0; background-color: #262638; }
         }
 
-        /* Area Pilihan Balok (Tanpa Background) */
+        /* Area Pilihan Balok */
         .pieces-container {
             display: flex;
             justify-content: center;
@@ -261,7 +261,6 @@
                     cellEl.dataset.row = r;
                     cellEl.dataset.col = c;
                     
-                    // Event ketuk / sentuh papan
                     cellEl.addEventListener('mouseenter', () => handleCellHover(r, c, true));
                     cellEl.addEventListener('mouseleave', () => handleCellHover(r, c, false));
                     cellEl.addEventListener('click', () => handleCellClick(r, c));
@@ -281,12 +280,11 @@
                     box.style.display = 'none';
                 }
 
-                // Ketuk untuk memilih balok
                 box.addEventListener('click', () => {
                     if (isAnimating) return;
                     initAudio();
                     if (selectedPieceIndex === index) {
-                        selectedPieceIndex = null; // Batalkan pilihan jika diketuk 2x
+                        selectedPieceIndex = null;
                         document.getElementById('message').innerText = "Pilihan dibatalkan.";
                     } else {
                         selectedPieceIndex = index;
@@ -314,7 +312,6 @@
             checkGameOver();
         }
 
-        // Efek bayangan saat kursor/sentuhan mendekati papan
         function handleCellHover(targetR, targetC, isEnter) {
             if (selectedPieceIndex === null || usedPieces[selectedPieceIndex] || isAnimating) return;
             let piece = currentPieces[selectedPieceIndex];
@@ -337,12 +334,11 @@
                 let bRow = row + cell[0];
                 let bCol = col + cell[1];
                 if (bRow < 0 || bRow >= SIZE || bCol < 0 || bCol >= SIZE) return false;
-                if (board[bRow][bCol] !== '.') return false; // Terhalang balok lain
+                if (board[bRow][bCol] !== '.') return false;
             }
             return true;
         }
 
-        // Saat kotak di papan diketuk untuk meletakkan balok
         function handleCellClick(row, col) {
             if (selectedPieceIndex === null || usedPieces[selectedPieceIndex] || isAnimating) return;
 
@@ -364,10 +360,6 @@
 
             processLinesAndAnimation();
             document.getElementById('message').innerText = "";
-
-            if (usedPieces.every(u => u)) {
-                refillPieces();
-            }
         }
 
         function processLinesAndAnimation() {
@@ -404,13 +396,13 @@
                     if (cellEl) cellEl.classList.add('clearing');
                 });
 
-                let comboBonus = totalLines * 400 * totalLines;
+                let comboBonus = totalLines * 100 * totalLines;
                 score += comboBonus;
 
                 if (totalLines > 1) {
                     comboTextEl.innerText = `🔥 COMBO x${totalLines}! +${comboBonus} Poin`;
                 } else {
-                    comboTextEl.innerText = `✨ Bersih! +400 Poin`;
+                    comboTextEl.innerText = `✨ Bersih! +100 Poin`;
                 }
 
                 setTimeout(() => {
@@ -418,10 +410,19 @@
                         board[item.r][item.c] = '.';
                     });
                     isAnimating = false;
+                    
+                    // Cek apakah ketiga blok sudah habis setelah animasi selesai
+                    if (usedPieces.every(u => u)) {
+                        refillPieces();
+                    }
                     updateUI();
                 }, 300);
             } else {
                 comboTextEl.innerText = "";
+                // Cek apakah ketiga blok sudah habis langsung di sini
+                if (usedPieces.every(u => u)) {
+                    refillPieces();
+                }
                 updateUI();
             }
         }
@@ -440,7 +441,7 @@
 
             if (!hasMove && usedPieces.some(u => !u)) {
                 playSound('gameover');
-                document.getElementById('message').innerText = "GAME OVER! Silakan klik Mulai Ulang.";
+                document.getElementById('message').innerText = "GAME OVER YOU LOSE.";
                 document.getElementById('combo-text').innerText = "😢 Tidak ada langkah tersisa!";
             }
         }

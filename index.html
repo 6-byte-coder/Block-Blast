@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Block Blast Web - Animasi & Suara</title>
+    <title>Block Blast Web - Final</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #1e1e2f;
+            background-color: #161622;
             color: #ffffff;
             text-align: center;
             margin: 0;
@@ -15,40 +15,44 @@
             user-select: none;
         }
         h1 { margin-bottom: 5px; color: #ffcc00; }
-        #score-board { font-size: 20px; margin-bottom: 15px; font-weight: bold; }
+        #score-board { font-size: 20px; margin-bottom: 10px; font-weight: bold; }
         #combo-text { font-size: 18px; color: #ff5722; height: 25px; font-weight: bold; }
         
-        /* Papan Permainan 8x8 */
+        /* Papan Permainan 8x8 dengan Pembatas Jelas */
         .board {
             display: grid;
-            grid-template-columns: repeat(8, 42px);
-            grid-template-rows: repeat(8, 42px);
-            gap: 3px;
-            background: #252538;
-            padding: 8px;
-            border-radius: 10px;
-            margin: 10px auto;
+            grid-template-columns: repeat(8, 44px);
+            grid-template-rows: repeat(8, 44px);
+            gap: 4px;
+            background: #1f1f2e;
+            padding: 10px;
+            border-radius: 12px;
+            margin: 15px auto;
             width: max-content;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+            border: 2px solid #2d2d44;
         }
         .cell {
-            width: 42px;
-            height: 42px;
-            background-color: #2b2b3d;
+            width: 44px;
+            height: 44px;
+            background-color: #262638;
+            border: 1px solid #36364f; /* Pembatas di setiap kotak kosong */
             border-radius: 6px;
             transition: background 0.15s, transform 0.1s;
         }
         .cell.filled {
             background-color: #ff5722;
-            box-shadow: inset 0 0 6px rgba(0,0,0,0.3);
+            border: 1px solid #ff784e;
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.4);
             animation: popIn 0.2s ease-out;
         }
         .cell.drag-over {
-            background-color: #44446b;
+            background-color: #4b4b75;
             transform: scale(0.95);
+            border-color: #6a6a9e;
         }
 
-        /* Animasi saat baris/kolom hancur (Meledak/Menghilang) */
+        /* Animasi saat baris/kolom hancur */
         .cell.clearing {
             animation: clearAnim 0.3s ease-out forwards;
         }
@@ -61,49 +65,51 @@
         @keyframes clearAnim {
             0% { transform: scale(1); background-color: #ffffff; }
             50% { transform: scale(1.2); background-color: #ffeb3b; }
-            100% { transform: scale(0); opacity: 0; background-color: #2b2b3d; }
+            100% { transform: scale(0); opacity: 0; background-color: #262638; }
         }
 
-        /* Area Pilihan Balok (Tanpa Kotak Luar) */
+        /* Area Pilihan Balok */
         .pieces-container {
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 40px;
+            gap: 35px;
             margin-top: 30px;
             flex-wrap: wrap;
-            min-height: 100px;
+            min-height: 110px;
         }
         .piece-box {
-            background: transparent;
-            border: none;
-            padding: 0;
+            background: #1f1f2e;
+            border: 2px dashed #444463; /* Pembatas area pilihan balok */
+            padding: 10px;
+            border-radius: 10px;
             cursor: grab;
             touch-action: none;
-            transition: transform 0.2s;
+            transition: transform 0.2s, border-color 0.2s;
         }
         .piece-box:active {
             cursor: grabbing;
         }
         .piece-box.dragging {
-            opacity: 0.4;
+            opacity: 0.3;
         }
         
         /* Grid mini untuk pilihan balok */
         .mini-grid {
             display: grid;
-            grid-template-columns: repeat(4, 25px);
-            grid-template-rows: repeat(4, 25px);
-            gap: 3px;
+            grid-template-columns: repeat(4, 22px);
+            grid-template-rows: repeat(4, 22px);
+            gap: 2px;
         }
         .mini-cell {
-            width: 25px;
-            height: 25px;
+            width: 22px;
+            height: 22px;
             background: transparent;
-            border-radius: 4px;
+            border-radius: 3px;
         }
         .mini-cell.filled {
-            background-color: #ff5722;
+            background-color: #4caf50;
+            border: 1px solid #66bb6a;
             box-shadow: inset 0 0 4px rgba(0,0,0,0.3);
         }
 
@@ -116,14 +122,14 @@
 
         button {
             margin-top: 15px;
-            padding: 10px 20px;
+            padding: 10px 22px;
             font-size: 16px;
             background-color: #ffcc00;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             cursor: pointer;
             font-weight: bold;
-            color: #1e1e2f;
+            color: #161622;
             transition: background 0.2s;
         }
         button:hover { background-color: #e6b800; }
@@ -145,7 +151,7 @@
     <button onclick="resetGame()">Mulai Ulang</button>
 
     <script>
-        // --- Web Audio API untuk Efek Suara Tanpa File Eksternal ---
+        // --- Web Audio API untuk Efek Suara ---
         let audioCtx = null;
 
         function initAudio() {
@@ -166,7 +172,6 @@
             let now = audioCtx.currentTime;
 
             if (type === 'place') {
-                // Suara ketukan menaruh balok
                 osc.type = 'triangle';
                 osc.frequency.setValueAtTime(300, now);
                 osc.frequency.exponentialRampToValueAtTime(150, now + 0.1);
@@ -175,7 +180,6 @@
                 osc.start(now);
                 osc.stop(now + 0.1);
             } else if (type === 'clear') {
-                // Suara bersih/hancur baris (nada ceria)
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(440, now);
                 osc.frequency.exponentialRampToValueAtTime(880, now + 0.25);
@@ -184,7 +188,6 @@
                 osc.start(now);
                 osc.stop(now + 0.25);
             } else if (type === 'gameover') {
-                // Suara Game Over (nada turun)
                 osc.type = 'sawtooth';
                 osc.frequency.setValueAtTime(300, now);
                 osc.frequency.linearRampToValueAtTime(100, now + 0.5);
@@ -201,7 +204,7 @@
         let score = 0;
         let highscore = localStorage.getItem('block_blast_highscore') || 0;
         let activePieceIndex = null;
-        let isAnimating = false; // Mencegah drag saat animasi hancur aktif
+        let isAnimating = false;
 
         const allPieces = [
             { cells: [[0,0]], symbol: 'A' },
@@ -247,7 +250,7 @@
                 document.getElementById('highscore').innerText = highscore;
             }
             
-            // Render Papan
+            // Render Papan 8x8
             const boardEl = document.getElementById('game-board');
             boardEl.innerHTML = '';
             for (let r = 0; r < SIZE; r++) {
@@ -266,7 +269,7 @@
                 }
             }
 
-            // Render Pilihan Balok
+            // Render 3 Pilihan Balok di Bawah
             const container = document.getElementById('pieces-container');
             container.innerHTML = '';
             currentPieces.forEach((piece, index) => {
@@ -276,11 +279,11 @@
 
                 if (usedPieces[index]) {
                     box.style.opacity = '0';
-                    box.style.cursor = 'default';
+                    box.style.pointerEvents = 'none';
                 }
 
                 box.addEventListener('dragstart', () => {
-                    initAudio(); // Aktifkan konteks audio saat interaksi pertama
+                    initAudio();
                     activePieceIndex = index;
                     box.classList.add('dragging');
                 });
@@ -329,12 +332,13 @@
             document.querySelectorAll('.cell').forEach(el => el.classList.remove('drag-over'));
         }
 
+        // Pengecekan agar tidak menimpa balok lain / keluar batas papan
         function canPlace(piece, row, col) {
             for (let cell of piece.cells) {
                 let bRow = row + cell[0];
                 let bCol = col + cell[1];
                 if (bRow < 0 || bRow >= SIZE || bCol < 0 || bCol >= SIZE) return false;
-                if (board[bRow][bCol] !== '.') return false;
+                if (board[bRow][bCol] !== '.') return false; // Terhalang balok lain
             }
             return true;
         }
@@ -344,11 +348,10 @@
 
             let piece = currentPieces[activePieceIndex];
             if (!canPlace(piece, row, col)) {
-                document.getElementById('message').innerText = "Tidak bisa ditaruh di sini!";
+                document.getElementById('message').innerText = "Tidak bisa menimpa balok lain atau keluar papan!";
                 return;
             }
 
-            // Putar suara pasang balok
             playSound('place');
 
             for (let cell of piece.cells) {
@@ -358,12 +361,12 @@
             usedPieces[activePieceIndex] = true;
             score += piece.cells.length * 10;
 
-            // Cek baris/kolom penuh dan jalankan animasi hancur
             processLinesAndAnimation();
 
             activePieceIndex = null;
             document.getElementById('message').innerText = "";
 
+            // Jika ketiganya sudah dipakai, otomatis muncul 3 blok baru dengan bentuk berbeda
             if (usedPieces.every(u => u)) {
                 refillPieces();
             }
@@ -398,7 +401,6 @@
                 isAnimating = true;
                 playSound('clear');
 
-                // Tambahkan kelas animasi hancur ke elemen visual
                 cellsToClear.forEach(item => {
                     let cellEl = document.querySelector(`[data-row='${item.r}'][data-col='${item.c}']`);
                     if (cellEl) cellEl.classList.add('clearing');
@@ -413,7 +415,6 @@
                     comboTextEl.innerText = `✨ Bersih! +100 Poin`;
                 }
 
-                // Tunggu animasi selesai (300ms) baru hapus datanya dari board & perbarui UI
                 setTimeout(() => {
                     cellsToClear.forEach(item => {
                         board[item.r][item.c] = '.';
